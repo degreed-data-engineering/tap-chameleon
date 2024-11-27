@@ -1,4 +1,4 @@
-# `tap-template`
+# `tap-chameleon`
 This tap template was created by Degreed as a template to be used for extracting data via Meltano into defined targets
 
 

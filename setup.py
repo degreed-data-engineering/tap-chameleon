@@ -18,5 +18,9 @@ setup(name = "tap-chameleon",
       'Programming Language :: Python',
       'Topic :: Scientific/Engineering :: Astronomy'
       ],
+      install_requires=[
+        "requests>=2.25.1",
+        # ... other dependencies ...
+    ],
     zip_safe=False
 )
