@@ -50,8 +50,9 @@ class TapChameleon(Tap):
         ),
         th.Property(
             "limit",
-            th.StringType,
+            th.IntegerType,
             required=False,
+            default=50,
             description="The survey response API limit"
         ),
         th.Property(
