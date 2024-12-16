@@ -203,8 +203,7 @@ class MicroSurveyResponses(TapChameleonStream):
                 raise KeyError("Profile data missing from record")
 
             return {
-                "profile_id": profile["id"],
-                "profile_data": profile
+                "id": profile["id"]
             }
         except Exception as e:
             logging.exception("Error generating child context")
@@ -221,49 +220,25 @@ class ProfileStream(TapChameleonStream):
     
     # Stream configuration
     name: str = "profiles"
-    path: str = "/v3/profiles"
+    path: str = "/v3/analyze/profiles/{id}"
     primary_keys: List[str] = ["id"]
     
     # Parent stream settings
     parent_stream_type = MicroSurveyResponses
     ignore_parent_replication_keys: bool = True
+
+    replication_key = None 
     
     # Stream schema definition
     schema: Dict[str, Any] = th.PropertiesList(
-        # Profile identification
-        th.Property("id", th.StringType),
-        th.Property("uid", th.StringType),
-        
-        # Timestamps
-        th.Property("created_at", th.DateTimeType),
-        th.Property("updated_at", th.DateTimeType),
-        
-        # Company information
-        th.Property("company", th.ObjectType(
-            th.Property("uid", th.StringType),
+    # Profile details
+        th.Property("profile", th.ObjectType(
+            th.Property("id", th.StringType),  # Profile ID
+            
+            th.Property("browser_l", th.StringType),  # Browser language
+            # Nested company details
+            th.Property("company", th.ObjectType(
+                th.Property("uid", th.StringType)
+            )),
         )),
     ).to_dict()
-    
-    def get_records(
-    self,
-    context: Optional[Dict[str, Any]] = None
-    ) -> Iterable[Dict[str, Any]]:
-        """
-        Return profile records from parent context.
-        
-        Args:
-            context: Optional dictionary containing profile data from parent stream
-            
-        Returns:
-            Iterable of profile records
-            
-        Note:
-            Returns an empty iterator if no valid profile data is found in context
-        """
-        try:
-            if context and (profile_data := context.get("profile_data")):
-                # Create a copy to avoid modifying original data
-                yield profile_data.copy()
-        except Exception as e:
-            logging.exception("Error retrieving profile records")
-            raise
