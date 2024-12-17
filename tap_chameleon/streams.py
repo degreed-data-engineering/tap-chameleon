@@ -116,8 +116,8 @@ class TapChameleonStream(RESTStream):
 
             # Add optional parameters if they exist
             for param_name, config_key in [
-                ("before", "before_created"),
-                ("after", "after_created")
+                ("before", "created_before"),
+                ("after", "created_after")
             ]:
                 if value := self.config.get(config_key):
                     params[param_name] = value
