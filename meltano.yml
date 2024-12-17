@@ -23,6 +23,7 @@ plugins:
     - name: survey_id
       description: Chameleon survey id
     - name: limit
+      kind: integer
       value: 50
       description: Limit the response items. Defaults to 50 with a maximum of 500
     - name: before_created
