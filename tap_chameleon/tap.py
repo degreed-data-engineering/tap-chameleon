@@ -56,13 +56,13 @@ class TapChameleon(Tap):
             description="The survey response API limit"
         ),
         th.Property(
-            "before_created",
+            "created_before",
             th.StringType,
             required=False,
             description="Read as created before and can be given as a timestamp or ID to get only limit items that were created before this time"
         ),
         th.Property(
-            "after_created",
+            "created_after",
             th.StringType,
             required=False,
             description="Read as created after and can be given as a timestamp or ID to get only limit items that were created after this time"
