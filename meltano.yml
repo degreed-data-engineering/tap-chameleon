@@ -38,8 +38,8 @@ plugins:
       survey_name: $TAP_CHAMELEON_SURVEY_NAME
       survey_id: $TAP_CHAMELEON_SURVEY_ID
       limit: $TAP_CHAMELEON_LIMIT
-      before_created: $TAP_CHAMELEON_BEFORE_CREATED
-      after_created: $TAP_CHAMELEON_AFTER_CREATED
+      created_before: $TAP_CHAMELEON_CREATED_BEFORE
+      created_after: $TAP_CHAMELEON_CREATED_AFTER
 
   loaders:
   - name: target-jsonl
