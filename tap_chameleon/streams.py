@@ -173,10 +173,6 @@ class MicroSurveyResponses(TapChameleonStream):
         # Profile information
         th.Property("profile", th.ObjectType(
             th.Property("id", th.StringType),
-            th.Property("uid", th.StringType),
-            th.Property("company", th.ObjectType(
-                th.Property("uid", th.StringType),
-            )),
         )),
     ).to_dict()
     
@@ -222,6 +218,7 @@ class ProfileStream(TapChameleonStream):
     name: str = "profiles"
     path: str = "/v3/analyze/profiles/{id}"
     primary_keys: List[str] = ["id"]
+    records_jsonpath: str = "$.profile[*]"
     
     # Parent stream settings
     parent_stream_type = MicroSurveyResponses
@@ -231,14 +228,12 @@ class ProfileStream(TapChameleonStream):
     
     # Stream schema definition
     schema: Dict[str, Any] = th.PropertiesList(
-    # Profile details
-        th.Property("profile", th.ObjectType(
-            th.Property("id", th.StringType),  # Profile ID
-            
-            th.Property("browser_l", th.StringType),  # Browser language
-            # Nested company details
-            th.Property("company", th.ObjectType(
-                th.Property("uid", th.StringType)
-            )),
+        th.Property("id", th.StringType),  # Profile ID
+        th.Property("browser_l", th.StringType),  # Browser language
+        th.Property("created_at", th.StringType),  # Other details
+        th.Property("updated_at", th.StringType),  # Other details
+        # Company details
+        th.Property("company", th.ObjectType(
+            th.Property("uid", th.StringType)
         )),
     ).to_dict()
