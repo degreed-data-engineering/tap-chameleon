@@ -168,7 +168,7 @@ class MicroSurveyResponses(TapChameleonStream):
         th.Property("survey_id", th.StringType),
         th.Property("profile_id", th.StringType),
         th.Property("button_text", th.StringType),
-        th.Property("input_text", th.StringType, required=False),
+        th.Property("input_text", th.StringType),
         
         # Profile information
         th.Property("profile", th.ObjectType(
