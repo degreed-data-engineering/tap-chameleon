@@ -1,217 +1,239 @@
 """Stream class for tap-chameleon."""
 
-import sys
+from typing import Dict, Any, Iterable, Union, List, Optional
 
-from typing import Dict, Any
-from singer_sdk import Tap, typing as th
-from singer_sdk._singerlib import Schema
+from singer_sdk import typing as th
 from singer_sdk.streams import RESTStream
-from singer_sdk.authenticators import SimpleAuthenticator
+from singer_sdk.pagination import BaseHATEOASPaginator
 
-from typing import Dict, Any
+import logging
+logging.basicConfig(level=logging.INFO)
 
+class CustomHATEOASPaginator(BaseHATEOASPaginator):
 
-class CustomPaginator:
-    def __init__(self, cursor: Dict[str, Any] = None, limit: int = 1):
-        self.cursor = cursor or {}
-        self.limit = limit
-
-    def get_url_params(self) -> Dict[str, Any]:
+    def get_next_url(self, response) -> Optional[str]:
         """
-        Return URL parameters to be used for the next request.
-        Includes pagination using the 'before' cursor.
+        Fetch the next page URL based on the cursor.
+        
+        Args:
+            response: The API response object
+            
+        Returns:
+            Optional[str]: The next page URL or None if no more pages
         """
-        url_params = {"limit": self.limit}
-        if "before" in self.cursor:
-            url_params["before"] = self.cursor["before"]
-        return url_params
+        cursor = response.json().get("cursor", {})
+        return cursor.get("before")
+
+    def get_next_token(self, response) -> Optional[str]:
+        """
+        Retrieve the next token for pagination.
+        
+        Args:
+            response: The API response object
+            
+        Returns:
+            Optional[str]: The next pagination token or None if no more pages
+        """
+        cursor = response.json().get("cursor", {})
+        return cursor.get("before")
 
 
 class TapChameleonStream(RESTStream):
     """tap-chameleon stream class"""
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._paginator = CustomPaginator(limit=1)
-
     _LOG_REQUEST_METRIC_URLS: bool = True
-
-    next_page_token_jsonpath = "$.cursor.before"
 
     @property
     def url_base(self) -> str:
-        """Base URL of source"""
-        return self.config.get("api_base_url", "https://api.chameleon.io")
+        """
+        Return the base URL for API requests.
+        
+        Returns:
+            str: The base URL, defaults to 'https://api.chameleon.io' if not specified
+            
+        Raises:
+            Exception: If there's an error accessing configuration
+        """
+        try:
+            return self.config.get("api_base_url", "https://api.chameleon.io")
+        except Exception as e:
+            logging.exception("Error retrieving base URL from configuration")
+            raise
 
     @property
-    def http_headers(self) -> dict:
-        """Return the http headers needed."""
-        headers = {}
-        headers["Content-Type"] = "application/json"
-        headers["Accept"] = "application/json"
-        return headers
-
-    @property
-    def authenticator(self):
-        http_headers = {}
-
-        # Setting tap specific auth method
-        if self.config.get("api_account_secret"):
-            http_headers["X-Account-Secret"] = self.config.get("api_account_secret")
-
-        return SimpleAuthenticator(stream=self, auth_headers=http_headers)
-
-    def get_new_paginator(self, response: Dict[str, Any]) -> CustomPaginator:
+    def http_headers(self) -> Dict[str, str]:
         """
-        Use the custom paginator logic to handle pagination and return the updated paginator.
+        Return the HTTP headers needed for API requests.
+        
+        Returns:
+            Dictionary containing required HTTP headers
+            
+        Raises:
+            Exception: If there's an error accessing configuration
         """
-        return self._paginator.get_new_paginator(response)
-
-
-class MicroSurveyResponses(TapChameleonStream):
-    name = "survey_responses"
-    path = "/v3/analyze/responses"
-    primary_keys = ["id"]
-    replication_key = None
-    records_jsonpath = "$.responses[*]"
-
-    schema = th.PropertiesList(
-        # TO DO
-        th.Property("id", th.StringType),
-    ).to_dict()
+        try:
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+            
+            if api_secret := self.config.get("api_account_secret"):
+                headers["X-Account-Secret"] = api_secret
+                
+            return headers
+            
+        except Exception as e:
+            logging.exception("Error generating HTTP headers")
+            raise
 
     def get_url_params(
-        self, context: Dict | None, next_page_token: Any | None
-    ) -> Dict[str, Any] | str:
-        params: dict = {}
-        survey_id = self.config.get("survey_id", None)
-        limit = self.config.get("limit", 500)
-        if survey_id is not None:
+        self,
+        context: Optional[Dict[str, Any]],
+        next_page_token: Optional[Any]
+    ) -> Dict[str, Any]:
+        """
+        Get URL parameters for the API request.
+
+        Args:
+            context: The stream context dictionary
+            next_page_token: Token for pagination
+
+        Returns:
+            Dictionary of URL parameters
+
+        Raises:
+            ValueError: If survey_id is not provided in config
+        """
+        try:
+            params = {
+                "limit": self.config.get("limit", 50)
+            }
+
+            survey_id = self.config.get("survey_id")
+            if not survey_id:
+                raise ValueError("survey_id is required in config")
             params["id"] = survey_id
-        else:
-            self.logger.error(
-                "The query stirng parameter 'survey_id' should be provided. Exiting application."
-            )
-            sys.exit()
-        return params
 
+            # Add optional parameters if they exist
+            for param_name, config_key in [
+                ("before", "created_before"),
+                ("after", "created_after")
+            ]:
+                if value := self.config.get(config_key):
+                    params[param_name] = value
+                    logging.debug(f"Adding {param_name} parameter: {value}")
 
-# class Events(TapChameleonStream):
-#     name = "events"  # Stream name
-#     path = "/api/v2/logs/events/search"  # API endpoint after base_url
-#     primary_keys = ["id"]
-#     records_jsonpath = "$.data[*]"  # https://jsonpath.com Use requests response json to identify the json path
-#     replication_key = None
-#     # schema_filepath = SCHEMAS_DIR / "events.json"  # Optional: use schema_filepath with .json inside schemas/
+            # Override 'before' parameter if next_page_token exists
+            if next_page_token:
+                params["before"] = next_page_token
 
-#     # Optional: If using schema_filepath, remove the propertyList schema method below
-#     schema = th.PropertiesList(
-#         th.Property("id", th.NumberType),
-#         th.Property("name", th.StringType),
-#     ).to_dict()
-#     # Overwrite GET here by updating rest_method
-#     rest_method = "POST"
+            return params
 
-#     def prepare_request_payload(
-#         self, context: Optional[dict], next_page_token: Optional[Any]
-#     ) -> Optional[dict]:
-#         """Define request parameters to return"""
-#         payload = {
-#             "filter": {
-#                 "query": "source:degreed.api env:production",
-#                 "from": self.config.get("start_date"),
-#             },
-#             "page": {"limit": 4},
-#         }
-#         return payload
+        except Exception as e:
+            logging.exception("Error generating URL parameters")
+            raise
+    
+    def get_new_paginator(self) -> CustomHATEOASPaginator:
+        """
+        Return a new instance of the custom HATEOAS paginator.
+        
+        Returns:
+            CustomHATEOASPaginator: A paginator instance for handling API pagination
+        """
+        return CustomHATEOASPaginator()
 
-# For passing url parameters:
-# def get_url_params(
-#     self, context: Optional[dict], next_page_token: Optional[Any]
-# ) -> Dict[str, Any]:
+class MicroSurveyResponses(TapChameleonStream):
 
+    """Stream for handling Chameleon micro-survey responses."""
+    
+    # Stream configuration
+    name: str = "survey_responses"
+    path: str = "/v3/analyze/responses"
+    primary_keys: List[str] = ["id"]
+    replication_key: Optional[str] = None
+    
+    # JSON response parsing
+    records_jsonpath: str = "$.responses[*]"
+    next_page_token_jsonpath: str = "$.cursor.before"
 
-### Template to use for new stream
-# class TemplateStream(RESTStream):
-#     """Template stream class."""
+    # Stream schema definition
+    schema: Dict[str, Any] = th.PropertiesList(
+        # Response metadata
+        th.Property("id", th.StringType),
+        th.Property("created_at", th.DateTimeType),
+        th.Property("updated_at", th.DateTimeType),
+        th.Property("finished_at", th.DateTimeType),
+        
+        # Survey details
+        th.Property("survey_id", th.StringType),
+        th.Property("profile_id", th.StringType),
+        th.Property("button_text", th.StringType),
+        th.Property("input_text", th.StringType),
+        
+        # Profile information
+        th.Property("profile", th.ObjectType(
+            th.Property("id", th.StringType),
+        )),
+    ).to_dict()
+    
+    def get_child_context(
+    self,
+    record: Dict[str, Any],
+    context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate context for child streams from a parent record.
 
-#     # TODO: Set the API's base URL here:
-#     url_base = "https://api.mysample.com"
+        Args:
+            record: The parent stream record containing profile information
+            context: Optional parent stream context
 
-#     # OR use a dynamic url_base:
-#     # @property
-#     # def url_base(self) -> str:
-#     #     """Return the API URL root, configurable via tap settings."""
-#     #     return self.config["api_url"]
+        Returns:
+            Dict containing profile ID and profile data for child streams
 
-#     records_jsonpath = "$[*]"  # Or override `parse_response`.
-#     next_page_token_jsonpath = "$.next_page"  # Or override `get_next_page_token`.
+        Raises:
+            KeyError: If required profile data is missing from the record
+        """
+        try:
+            if not (profile := record.get("profile")):
+                raise KeyError("Profile data missing from record")
 
-#     @property
-#     def authenticator(self) -> BasicAuthenticator:
-#         """Return a new authenticator object."""
-#         return BasicAuthenticator.create_for_stream(
-#             self,
-#             username=self.config.get("username"),
-#             password=self.config.get("password"),
-#         )
+            return {
+                "id": profile["id"]
+            }
+        except Exception as e:
+            logging.exception("Error generating child context")
+            raise
+        
 
-#     @property
-#     def http_headers(self) -> dict:
-#         """Return the http headers needed."""
-#         headers = {}
-#         if "user_agent" in self.config:
-#             headers["User-Agent"] = self.config.get("user_agent")
-#         # If not using an authenticator, you may also provide inline auth headers:
-#         # headers["Private-Token"] = self.config.get("auth_token")
-#         return headers
+class ProfileStream(TapChameleonStream):
+    """
+    Profile stream class, child of survey_responses.
+    
+    This stream handles profile data associated with survey responses,
+    including user identification and company information.
+    """
+    
+    # Stream configuration
+    name: str = "profiles"
+    path: str = "/v3/analyze/profiles/{id}"
+    primary_keys: List[str] = ["id"]
+    records_jsonpath: str = "$.profile[*]"
+    
+    # Parent stream settings
+    parent_stream_type = MicroSurveyResponses
+    ignore_parent_replication_keys: bool = True
 
-#     def get_next_page_token(
-#         self, response: requests.Response, previous_token: Optional[Any]
-#     ) -> Optional[Any]:
-#         """Return a token for identifying next page or None if no more pages."""
-#         # TODO: If pagination is required, return a token which can be used to get the
-#         #       next page. If this is the final page, return "None" to end the
-#         #       pagination loop.
-#         if self.next_page_token_jsonpath:
-#             all_matches = extract_jsonpath(
-#                 self.next_page_token_jsonpath, response.json()
-#             )
-#             first_match = next(iter(all_matches), None)
-#             next_page_token = first_match
-#         else:
-#             next_page_token = response.headers.get("X-Next-Page", None)
-
-#         return next_page_token
-
-#     def get_url_params(
-#         self, context: Optional[dict], next_page_token: Optional[Any]
-#     ) -> Dict[str, Any]:
-#         """Return a dictionary of values to be used in URL parameterization."""
-#         params: dict = {}
-#         if next_page_token:
-#             params["page"] = next_page_token
-#         if self.replication_key:
-#             params["sort"] = "asc"
-#             params["order_by"] = self.replication_key
-#         return params
-
-#     def prepare_request_payload(
-#         self, context: Optional[dict], next_page_token: Optional[Any]
-#     ) -> Optional[dict]:
-#         """Prepare the data payload for the REST API request.
-
-#         By default, no payload will be sent (return None).
-#         """
-#         # TODO: Delete this method if no payload is required. (Most REST APIs.)
-#         return None
-
-#     def parse_response(self, response: requests.Response) -> Iterable[dict]:
-#         """Parse the response and return an iterator of result records."""
-#         # TODO: Parse response body and return a set of records.
-#         yield from extract_jsonpath(self.records_jsonpath, input=response.json())
-
-#     def post_process(self, row: dict, context: Optional[dict]) -> dict:
-#         """As needed, append or transform raw data to match expected structure."""
-#         # TODO: Delete this method if not needed.
-#         return row
+    replication_key = None 
+    
+    # Stream schema definition
+    schema: Dict[str, Any] = th.PropertiesList(
+        th.Property("id", th.StringType),  # Profile ID
+        th.Property("browser_l", th.StringType),  # Browser language
+        th.Property("created_at", th.StringType),  # Other details
+        th.Property("updated_at", th.StringType),  # Other details
+        # Company details
+        th.Property("company", th.ObjectType(
+            th.Property("uid", th.StringType)
+        )),
+    ).to_dict()

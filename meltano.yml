@@ -3,43 +3,55 @@ send_anonymous_usage_stats: true
 project_id: 4935d052-aee1-46fa-89f0-a94cdc080064
 plugins:
   extractors:
-    - name: tap-chameleon
-      namespace: tap_chameleon
-      executable: ./tap-chameleon.sh
-      capabilities:
-        - state
-        - catalog
-        - discover
-      settings:
-        - name: api_base_url
-          value: https://api.chameleon.io
-          description: Chameleon REST api base url
-        - name: api_account_secret
-          kind: password
-          description: Chameleon account-specific secret token
-          sensitive: true
-        - name: survey_name
-          description: Chameleon survey name
-        - name: survey_id
-          description: Chameleon survey id
-        - name: limit
-          description: Limit the response items. Defaults to 50 with a maximum of 500
-          value: 1
-      config:
-        api_base_url: $TAP_CHAMELEON_API_BASE_URL
-        api_account_secret: $TAP_CHAMELEON_API_ACCOUNT_SECRET
-        survey_name: $TAP_CHAMELEON_SURVEY_NAME
-        # survey_id: $TAP_CHAMELEON_SURVEY_ID
-        survey_id: 671901ff56a461001f653516
-        limit: $TAP_CHAMELEON_LIMIT
+  - name: tap-chameleon
+    namespace: tap_chameleon
+    executable: ./tap-chameleon.sh
+    capabilities:
+    - state
+    - catalog
+    - discover
+    settings:
+    - name: api_base_url
+      value: https://api.chameleon.io
+      description: Chameleon REST api base url
+    - name: api_account_secret
+      kind: string
+      description: Chameleon account-specific secret token
+      sensitive: true
+    - name: survey_name
+      description: Chameleon survey name
+    - name: survey_id
+      description: Chameleon survey id
+    - name: limit
+      kind: integer
+      value: 50
+      description: Limit the response items. Defaults to 50 with a maximum of 500
+    - name: before_created
+      description: Read as created before and can be given as a timestamp or ID to
+        get only limit items that were created before this time
+    - name: after_created
+      description: Read as created after and can be given as a timestamp or ID to
+        get only limit items that were created after this time
+    config:
+      api_base_url: https://api.chameleon.io
+      api_account_secret: $TAP_CHAMELEON_API_ACCOUNT_SECRET
+      survey_name: $TAP_CHAMELEON_SURVEY_NAME
+      survey_id: $TAP_CHAMELEON_SURVEY_ID
+      limit: $TAP_CHAMELEON_LIMIT
+      created_before: $TAP_CHAMELEON_CREATED_BEFORE
+      created_after: $TAP_CHAMELEON_CREATED_AFTER
 
   loaders:
-    - name: target-jsonl
-      variant: andyh1203
-      pip_url: target-jsonl
-environments:
-  - name: dev
+  - name: target-jsonl
+    variant: andyh1203
+    pip_url: target-jsonl
     config:
-      plugins:
-        extractors:
-          - name: tap-chameleon
+      path_prefix: ./output    # Directory where JSONL files will be written
+      do_timestamp_file: true
+default_environment: dev
+environments:
+- name: dev
+  config:
+    plugins:
+      extractors:
+      - name: tap-chameleon
