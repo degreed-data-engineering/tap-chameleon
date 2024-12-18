@@ -1,178 +1,111 @@
-# `tap-chameleon`
-This tap template was created by Degreed as a template to be used for extracting data via Meltano into defined targets
+# tap-chameleon
 
+A Singer tap for extracting data from the Chameleon API, built using the Singer SDK and designed to work with Meltano.
 
-## tap-template
+## Overview
 
-These are the steps required for using this repo as a 'template' for a Meltano extractor. Note: we will use tap-datadog as the example throughout the process.
+tap-chameleon is a Singer tap that extracts data from Chameleon's REST API, specifically focused on survey responses and associated profile data. It supports incremental replication and pagination through Chameleon's API endpoints.
 
-1.  Being aware of case sensitivity, replace the following throughout the repo:
+## Features
 
-* `tap-template` >`tap-datadog` 
-* `tap_template` > `tap_datadog`
-* `TapTemplateStream` > `TapDatadogStream` (inside `streams.py`)
+- Extracts survey responses and profile data from Chameleon
+- Supports incremental replication
+- Handles API pagination
+- Built with Singer SDK
+- Meltano compatible
 
-2. Update the following folders/files to:
-* `tap_template` > `tap_datadog`
-* `tap-template.sh` > `tap-datadog.sh`
+## Installation
 
-3. Inside `streams.py` update TapTemplateStream with the authentication used for the tap-datadog api calls.  Note: all streams in streams.py work as a heirarchy further down. i.e. you can replace the http headers in another stream
-
-4. Using `Events(TapTemplateStream)` as an example, build your first stream to be synced. There are comments to help identify what values to use 
-
-For setting the `records_jsonpath` value in the stream, you can use a tool likle postman to make a sample call and view the response json.  After identifying what keys and values you need to extract, you will need to narrow down the json path. This is a helpful site that you can paste the response text in and help locate the correct path to use.  In this example, we want to only extract the `id` and `type` values inside `data`:
-
-```json
-{
-    "meta": {
-        "page": {
-            "after": "293048209rudjkfjdsf"
-        }
-    },
-    "data": [
-        {
-            "type": "error",
-            "id": "234234324324234"
-        },
-        {
-            "type": "log",
-            "id": "2342123123"
-        },
-        {
-            "type": "log",
-            "id": "09823044ugkdf"
-        }
-    ],
-    "links": {
-        "next": "https://api.datadoghq.com/api/v2/logs/events?..."
-    }
-}
-```
-
-Using the link above and entering the value $.data[*], the correct fields are now displaying, confirming that is the correct path:
-
-```json
-[
-  {
-    "type": "error",
-    "id": "234234324324234"
-  },
-  {
-    "type": "log",
-    "id": "2342123123"
-  },
-  {
-    "type": "log",
-    "id": "09823044ugkdf"
-  }
-]
-```
-
-For the schema, you can create the .json file and place it in the schemas/ folder, or you can create the schema on the fly using the eample in the Events stream
-
-- **Option 1:** Adding the `events.json` file to the schemas/ folder:
-```json
-{
-        "type": "object",
-        "properties": {
-                "id": {
-                        "type": "string"
-                },
-                "type": {
-                        "type": "string"
-                }
-        }
-}
-```
-
-- **Option 2:** Defining schema using hte PropertiesList in the stream `class`: 
-```python
-schema = th.PropertiesList(
-        th.Property("id", th.NumberType),
-        th.Property("name", th.StringType),
-    ).to_dict()
-```
-
-5. In `tap.py` add each stream added in `streams.py` to `STREAM_TYPES` and define the configuration required:
-
-```python
-    config_jsonschema = th.PropertiesList(
-        th.Property("api_token", th.StringType, required=False, description="api token for Basic auth"),
-        th.Property("start_date", th.StringType, required=False, description="start date for sync"),
-    ).to_dict()
-```
-
-6. After updating those components and confirming all references to `template` or `Template` have been updated, you can test the tap locally.
-
-## Testing locally
-
-To test locally, pipx poetry
+1. Install using pipx and poetry:
 ```bash
 pipx install poetry
-```
-
-Install poetry for the package
-```bash
 poetry install
 ```
 
-To confirm everything is setup properly, run the following: 
+2. Update and install dependencies:
 ```bash
-poetry run tap-template --help
+meltano lock --update --all
+meltano install
 ```
 
-To run the tap locally outside of Meltano and view the response in a text file, run the following: 
+3. Configure the tap using one of these methods:
+
+   a. Set environment variables:
+   ```bash
+   export TAP_CHAMELEON_API_BASE_URL=https://api.chameleon.io
+   export TAP_CHAMELEON_SURVEY_ID=
+   export TAP_CHAMELEON_LIMIT=50
+   export TAP_CHAMELEON_API_ACCOUNT_SECRET=your_secret_here
+   export TAP_CHAMELEON_CREATED_AFTER=2024-12-04T18:51:01.000Z
+   export TAP_CHAMELEON_CREATED_BEFORE=2024-12-04T18:51:19.000Z
+   export TAP_CHAMELEON_SURVEY_NAME=test_survey
+   ```
+
+   OR
+
+   b. Configure interactively:
+   ```bash
+   meltano config tap-chameleon set --interactive
+   ```
+
+4. Run the tap with target-jsonl:
 ```bash
-poetry run tap-template > output.txt 
+meltano run tap-chameleon target-jsonl
 ```
 
-A full list of supported settings and capabilities is available by running: `tap-template --about`
 
-## Config Guide
+### Required Configuration Fields:
 
-To test locally, create a `config.json` with required config values in your tap_template folder (i.e. `tap_template/config.json`)
+- `api_account_secret`: Your Chameleon API account secret token
+- `survey_id`: The ID of the survey to fetch responses for
 
-```json
-{
-  "api_key": "$DD_API_KEY",
-  "app_key": "$DD_APP_KEY",
-  "start_date": "2022-10-05T00:00:00Z"
-}
+### Optional Configuration Fields:
+
+- `api_base_url`: Base URL for the Chameleon API (default: https://api.chameleon.io)
+- `survey_name`: Name of the survey
+- `limit`: Number of records per page (default: 50, max: 500)
+- `created_before`: Filter responses created before this timestamp/ID
+- `created_after`: Filter responses created after this timestamp/ID
+
+## Usage
+
+### Local Execution
+
+Run the tap in discovery mode:
+```bash
+poetry run tap-chameleon --discover > catalog.json
 ```
 
-**note**: It is critical that you delete the config.json before pushing to github.  You do not want to expose an api key or token 
-### Add to Meltano 
+### Meltano Integration
 
-The provided `meltano.yml` provides the correct setup for the tap to be installed in the data-houston repo.  
+Add to your Meltano project:
 
-At this point you should move all your updated tap files into its own tap-datadog github repo. You also want to make sure you update in the `setup.py` the `url` of the repo for you tap.
-
-Update the following in meltano within the data-houston repo with the new tap-datadog credentials/configuration.
-
-```yml
+```yaml
 plugins:
   extractors:
-  - name: tap-datadog
-    namespace: tap_datadog
-    pip_url: git+https://github.com/degreed-data-engineering/tap-datadog
+  - name: tap-chameleon
+    namespace: tap_chameleon
+    pip_url: git+https://github.com/degreed-data-engineering/tap-chameleon
     capabilities:
     - state
     - catalog
     - discover
     config:
-      api_key: $DD_API_KEY
-      app_key: $DD_APP_KEY
-      start_date: '2022-10-05T00:00:00Z'
- ```
+      api_account_secret: $TAP_CHAMELEON_API_ACCOUNT_SECRET
+      survey_id: $TAP_CHAMELEON_SURVEY_ID
+```
 
-To test in data-houston, run the following:
-1. `make meltano` - spins up meltano
-2. `meltano install extractor tap-datadog` - installs the tap
-3. `meltano invoke tap-datadog --discover > catalog.json` - tests the catalog/discovery
-3. `meltano invoke tap-datadog > output.txt` - runs tap with .txt output in `meltano/degreed/`
+For the complete Meltano configuration, see the `meltano.yml` file in the repository.
 
-That should be it! Feel free to contribute to the tap to help add functionality for any future sources
-## Singer SDK Dev Guide
+## Streams
 
-See the [dev guide](https://sdk.meltano.com/en/latest/index.html) for more instructions on how to use the Singer SDK to 
-develop your own taps and targets.
+### Survey Responses
+- Endpoint: `/v3/analyze/responses`
+- Primary key: `id`
+- Replication strategy: FULL_TABLE
+
+### Profiles
+- Endpoint: `/v3/analyze/profiles/{id}`
+- Primary key: `id`
+- Parent stream: survey_responses
+- Replication strategy: FULL_TABLE
