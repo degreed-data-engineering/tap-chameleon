@@ -113,6 +113,11 @@ class TapChameleonStream(RESTStream):
             if not survey_id:
                 raise ValueError("survey_id is required in config")
             params["id"] = survey_id
+            params["order"] = "updated_at"
+
+            start_date = self.get_starting_replication_key_value(context)
+            if start_date:
+                params["after"] = start_date
 
             # Add optional parameters if they exist
             for param_name, config_key in [
@@ -150,7 +155,7 @@ class MicroSurveyResponses(TapChameleonStream):
     name: str = "survey_responses"
     path: str = "/v3/analyze/responses"
     primary_keys: List[str] = ["id"]
-    replication_key: Optional[str] = None
+    replication_key: Optional[str] = "updated_at"
     
     # JSON response parsing
     records_jsonpath: str = "$.responses[*]"
@@ -224,7 +229,6 @@ class ProfileStream(TapChameleonStream):
     parent_stream_type = MicroSurveyResponses
     ignore_parent_replication_keys: bool = True
 
-    replication_key = None 
     
     # Stream schema definition
     schema: Dict[str, Any] = th.PropertiesList(
