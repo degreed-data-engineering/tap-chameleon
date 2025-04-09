@@ -9,7 +9,7 @@ from tap_chameleon.streams import (
     ProfileStream
 )
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARN)
 PLUGIN_NAME = "tap-chameleon"
 
 STREAM_TYPES = [

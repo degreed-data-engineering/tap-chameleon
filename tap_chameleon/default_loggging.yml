@@ -1,0 +1,20 @@
+version: 1
+disable_existing_loggers: false
+formatters:
+  metrics:
+    format: "{asctime} {levelname} {message}"
+    style: "{"
+handlers:
+  metrics:
+    class: logging.FileHandler
+    formatter: metrics
+    filename: metrics.log
+loggers:
+  singer_sdk.metrics:
+    level: ERROR
+    handlers: [ metrics ]
+    propagate: yes
+  tap-chameleon:
+    level: ERROR
+    handlers: [ metrics ]
+    propagate: yes

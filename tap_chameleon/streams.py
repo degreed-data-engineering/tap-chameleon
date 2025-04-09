@@ -7,7 +7,21 @@ from singer_sdk.streams import RESTStream
 from singer_sdk.pagination import BaseHATEOASPaginator
 
 import logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
+logging.getLogger().handlers[0].setLevel(logging.ERROR)
+# Expand the list of loggers to suppress
+for logger_name in [
+    'urllib3', 
+    'requests', 
+    'singer_sdk',
+    'meltano',
+    'meltano.core',
+    'tap_chameleon',
+    '__main__'
+]:
+    logging.getLogger(logger_name).setLevel(logging.ERROR)
+    logging.getLogger(logger_name).propagate = False
+
 
 class CustomHATEOASPaginator(BaseHATEOASPaginator):
 
