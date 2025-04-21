@@ -118,6 +118,7 @@ class TapChameleonStream(RESTStream):
             start_date = self.get_starting_replication_key_value(context)
             if start_date:
                 params["after"] = start_date
+                logging.info(f"Adding {start_date} replication key as start date")
 
             # Add optional parameters if they exist
             for param_name, config_key in [
