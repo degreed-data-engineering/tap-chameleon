@@ -126,7 +126,7 @@ class TapChameleonStream(RESTStream):
             ]:
                 if value := self.config.get(config_key):
                     params[param_name] = value
-                    logging.debug(f"Adding {param_name} parameter: {value}")
+                    logging.info(f"Adding {param_name} parameter: {value}")
 
             # Override 'before' parameter if next_page_token exists
             if next_page_token:
