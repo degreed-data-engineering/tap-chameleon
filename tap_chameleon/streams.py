@@ -115,12 +115,16 @@ class TapChameleonStream(RESTStream):
             params["id"] = survey_id
             params["order"] = "updated_at"
 
-            start_date = self.get_starting_replication_key_value(context)
+            start_date = None
+            if "replication_key_value" in self.stream_state:
+                logging.info(f"replication_key_value: {self.stream_state['replication_key_value']}")
+                start_date= self.stream_state['replication_key_value']
+
             if start_date:
                 params["after"] = start_date
                 logging.info(f"Adding {start_date} replication key as start date")
 
-            # Add optional parameters if they exist
+            # Add optional parameters if they exist, this is for testing purposes. using this will interepret the incremental load.
             for param_name, config_key in [
                 ("before", "created_before"),
                 ("after", "created_after")
