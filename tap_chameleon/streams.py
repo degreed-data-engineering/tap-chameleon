@@ -113,7 +113,6 @@ class TapChameleonStream(RESTStream):
             if not survey_id:
                 raise ValueError("survey_id is required in config")
             params["id"] = survey_id
-            params["order"] = "updated_at"
 
             start_date = None
             if "replication_key_value" in self.stream_state:
@@ -160,7 +159,7 @@ class MicroSurveyResponses(TapChameleonStream):
     name: str = "survey_responses"
     path: str = "/v3/analyze/responses"
     primary_keys: List[str] = ["id"]
-    replication_key: Optional[str] = "updated_at"
+    replication_key: Optional[str] = "created_at"
     
     # JSON response parsing
     records_jsonpath: str = "$.responses[*]"
