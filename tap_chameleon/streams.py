@@ -114,6 +114,13 @@ class TapChameleonStream(RESTStream):
                 raise ValueError("survey_id is required in config")
             params["id"] = survey_id
 
+            # GIO TEST
+            logging.info("### Printing stream state")
+            if self.stream_state:
+                logging.info(f"Stream state: {self.stream_state}")
+            logging.info("############################")
+            # GIO TEST
+
             start_date = None
             if "replication_key_value" in self.stream_state:
                 logging.info(f"replication_key_value: {self.stream_state['replication_key_value']}")
