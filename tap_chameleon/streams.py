@@ -166,7 +166,13 @@ class MicroSurveyResponses(TapChameleonStream):
             # GIO TEST
 
             start_date = None
-            if "replication_key_value" in self.stream_state:
+            # Check if 'bookmarks' and 'survey_responses' exist in stream_state
+            if "bookmarks" in self.stream_state and "survey_responses" in self.stream_state["bookmarks"]:
+                replication_state = self.stream_state["bookmarks"]["survey_responses"]
+                if "replication_key_value" in replication_state:
+                    logging.info(f"replication_key_value: {replication_state['replication_key_value']}")
+                    start_date = replication_state['replication_key_value']
+            elif "replication_key_value" in self.stream_state:
                 logging.info(f"replication_key_value: {self.stream_state['replication_key_value']}")
                 start_date= self.stream_state['replication_key_value']
 
