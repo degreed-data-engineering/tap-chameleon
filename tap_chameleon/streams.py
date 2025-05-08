@@ -86,6 +86,50 @@ class TapChameleonStream(RESTStream):
             logging.exception("Error generating HTTP headers")
             raise
 
+    
+    def get_new_paginator(self) -> CustomHATEOASPaginator:
+        """
+        Return a new instance of the custom HATEOAS paginator.
+        
+        Returns:
+            CustomHATEOASPaginator: A paginator instance for handling API pagination
+        """
+        return CustomHATEOASPaginator()
+
+class MicroSurveyResponses(TapChameleonStream):
+
+    """Stream for handling Chameleon micro-survey responses."""
+    
+    # Stream configuration
+    name: str = "survey_responses"
+    path: str = "/v3/analyze/responses"
+    primary_keys: List[str] = ["id"]
+    replication_key: Optional[str] = "created_at"
+    
+    # JSON response parsing
+    records_jsonpath: str = "$.responses[*]"
+    next_page_token_jsonpath: str = "$.cursor.before"
+
+    # Stream schema definition
+    schema: Dict[str, Any] = th.PropertiesList(
+        # Response metadata
+        th.Property("id", th.StringType),
+        th.Property("created_at", th.DateTimeType),
+        th.Property("updated_at", th.DateTimeType),
+        th.Property("finished_at", th.DateTimeType),
+        
+        # Survey details
+        th.Property("survey_id", th.StringType),
+        th.Property("profile_id", th.StringType),
+        th.Property("button_text", th.StringType),
+        th.Property("input_text", th.StringType),
+        
+        # Profile information
+        th.Property("profile", th.ObjectType(
+            th.Property("id", th.StringType),
+        )),
+    ).to_dict()
+    
     def get_url_params(
         self,
         context: Optional[Dict[str, Any]],
@@ -114,14 +158,36 @@ class TapChameleonStream(RESTStream):
                 raise ValueError("survey_id is required in config")
             params["id"] = survey_id
 
-            # Add optional parameters if they exist
+            # GIO TEST
+            logging.info("### Printing stream state")
+            if self.stream_state:
+                logging.info(f"Stream state: {self.stream_state}")
+            logging.info("############################")
+            # GIO TEST
+
+            start_date = None
+            # Check if 'bookmarks' and 'survey_responses' exist in stream_state
+            if "bookmarks" in self.stream_state and "survey_responses" in self.stream_state["bookmarks"]:
+                replication_state = self.stream_state["bookmarks"]["survey_responses"]
+                if "replication_key_value" in replication_state:
+                    logging.info(f"replication_key_value: {replication_state['replication_key_value']}")
+                    start_date = replication_state['replication_key_value']
+            elif "replication_key_value" in self.stream_state:
+                logging.info(f"replication_key_value: {self.stream_state['replication_key_value']}")
+                start_date= self.stream_state['replication_key_value']
+
+            if start_date:
+                params["after"] = start_date
+                logging.info(f"Adding {start_date} replication key as start date")
+
+            # Add optional parameters if they exist, this is for testing purposes. using this will interepret the incremental load.
             for param_name, config_key in [
                 ("before", "created_before"),
                 ("after", "created_after")
             ]:
                 if value := self.config.get(config_key):
                     params[param_name] = value
-                    logging.debug(f"Adding {param_name} parameter: {value}")
+                    logging.info(f"Adding {param_name} parameter: {value}")
 
             # Override 'before' parameter if next_page_token exists
             if next_page_token:
@@ -132,50 +198,7 @@ class TapChameleonStream(RESTStream):
         except Exception as e:
             logging.exception("Error generating URL parameters")
             raise
-    
-    def get_new_paginator(self) -> CustomHATEOASPaginator:
-        """
-        Return a new instance of the custom HATEOAS paginator.
-        
-        Returns:
-            CustomHATEOASPaginator: A paginator instance for handling API pagination
-        """
-        return CustomHATEOASPaginator()
 
-class MicroSurveyResponses(TapChameleonStream):
-
-    """Stream for handling Chameleon micro-survey responses."""
-    
-    # Stream configuration
-    name: str = "survey_responses"
-    path: str = "/v3/analyze/responses"
-    primary_keys: List[str] = ["id"]
-    replication_key: Optional[str] = None
-    
-    # JSON response parsing
-    records_jsonpath: str = "$.responses[*]"
-    next_page_token_jsonpath: str = "$.cursor.before"
-
-    # Stream schema definition
-    schema: Dict[str, Any] = th.PropertiesList(
-        # Response metadata
-        th.Property("id", th.StringType),
-        th.Property("created_at", th.DateTimeType),
-        th.Property("updated_at", th.DateTimeType),
-        th.Property("finished_at", th.DateTimeType),
-        
-        # Survey details
-        th.Property("survey_id", th.StringType),
-        th.Property("profile_id", th.StringType),
-        th.Property("button_text", th.StringType),
-        th.Property("input_text", th.StringType),
-        
-        # Profile information
-        th.Property("profile", th.ObjectType(
-            th.Property("id", th.StringType),
-        )),
-    ).to_dict()
-    
     def get_child_context(
     self,
     record: Dict[str, Any],
@@ -224,7 +247,6 @@ class ProfileStream(TapChameleonStream):
     parent_stream_type = MicroSurveyResponses
     ignore_parent_replication_keys: bool = True
 
-    replication_key = None 
     
     # Stream schema definition
     schema: Dict[str, Any] = th.PropertiesList(
