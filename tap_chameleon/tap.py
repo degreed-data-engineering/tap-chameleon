@@ -5,16 +5,14 @@ from singer_sdk import Tap, Stream
 from singer_sdk import typing as th
 
 from tap_chameleon.streams import (
-    MicroSurveyResponses,
-    ProfileStream
+    MicroSurveyResponses
 )
 import logging
 logging.basicConfig(level=logging.INFO)
 PLUGIN_NAME = "tap-chameleon"
 
 STREAM_TYPES = [
-    MicroSurveyResponses,
-    ProfileStream
+    MicroSurveyResponses
 ]
 
 
