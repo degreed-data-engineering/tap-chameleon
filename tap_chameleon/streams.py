@@ -86,52 +86,6 @@ class TapChameleonStream(RESTStream):
             logging.exception("Error generating HTTP headers")
             raise
 
-    def get_url_params(
-        self,
-        context: Optional[Dict[str, Any]],
-        next_page_token: Optional[Any]
-    ) -> Dict[str, Any]:
-        """
-        Get URL parameters for the API request.
-
-        Args:
-            context: The stream context dictionary
-            next_page_token: Token for pagination
-
-        Returns:
-            Dictionary of URL parameters
-
-        Raises:
-            ValueError: If survey_id is not provided in config
-        """
-        try:
-            params = {
-                "limit": self.config.get("limit", 50)
-            }
-
-            survey_id = self.config.get("survey_id")
-            if not survey_id:
-                raise ValueError("survey_id is required in config")
-            params["id"] = survey_id
-
-            # Add optional parameters if they exist
-            for param_name, config_key in [
-                ("before", "created_before"),
-                ("after", "created_after")
-            ]:
-                if value := self.config.get(config_key):
-                    params[param_name] = value
-                    logging.debug(f"Adding {param_name} parameter: {value}")
-
-            # Override 'before' parameter if next_page_token exists
-            if next_page_token:
-                params["before"] = next_page_token
-
-            return params
-
-        except Exception as e:
-            logging.exception("Error generating URL parameters")
-            raise
     
     def get_new_paginator(self) -> CustomHATEOASPaginator:
         """
@@ -150,7 +104,7 @@ class MicroSurveyResponses(TapChameleonStream):
     name: str = "survey_responses"
     path: str = "/v3/analyze/responses"
     primary_keys: List[str] = ["id"]
-    replication_key: Optional[str] = None
+    replication_key: Optional[str] = "created_at"
     
     # JSON response parsing
     records_jsonpath: str = "$.responses[*]"
@@ -172,68 +126,82 @@ class MicroSurveyResponses(TapChameleonStream):
         
         # Profile information
         th.Property("profile", th.ObjectType(
-            th.Property("id", th.StringType),
-        )),
-    ).to_dict()
+            th.Property("id", th.StringType),  # Profile ID
+            th.Property("browser_l", th.StringType),  # Browser language
+            th.Property("created_at", th.StringType),  # Other details
+            th.Property("updated_at", th.StringType),  # Other details
+            # Company details
+            th.Property("company", th.ObjectType(
+            th.Property("uid", th.StringType)
+        ))),
+    )).to_dict()
     
-    def get_child_context(
-    self,
-    record: Dict[str, Any],
-    context: Optional[Dict[str, Any]] = None
+    def get_url_params(
+        self,
+        context: Optional[Dict[str, Any]],
+        next_page_token: Optional[Any]
     ) -> Dict[str, Any]:
         """
-        Generate context for child streams from a parent record.
+        Get URL parameters for the API request.
 
         Args:
-            record: The parent stream record containing profile information
-            context: Optional parent stream context
+            context: The stream context dictionary
+            next_page_token: Token for pagination
 
         Returns:
-            Dict containing profile ID and profile data for child streams
+            Dictionary of URL parameters
 
         Raises:
-            KeyError: If required profile data is missing from the record
+            ValueError: If survey_id is not provided in config
         """
         try:
-            if not (profile := record.get("profile")):
-                raise KeyError("Profile data missing from record")
-
-            return {
-                "id": profile["id"]
+            params = {
+                "limit": self.config.get("limit", 50),
+                "expand[profile]":"all"
             }
+
+            survey_id = self.config.get("survey_id")
+            if not survey_id:
+                raise ValueError("survey_id is required in config")
+            params["id"] = survey_id
+
+            # GIO TEST
+            logging.info("### Printing stream state")
+            if self.stream_state:
+                logging.info(f"Stream state: {self.stream_state}")
+            logging.info("############################")
+            # GIO TEST
+
+            start_date = None
+            # Check if 'bookmarks' and 'survey_responses' exist in stream_state
+            if "bookmarks" in self.stream_state and "survey_responses" in self.stream_state["bookmarks"]:
+                replication_state = self.stream_state["bookmarks"]["survey_responses"]
+                if "replication_key_value" in replication_state:
+                    logging.info(f"replication_key_value: {replication_state['replication_key_value']}")
+                    start_date = replication_state['replication_key_value']
+            elif "replication_key_value" in self.stream_state:
+                logging.info(f"replication_key_value: {self.stream_state['replication_key_value']}")
+                start_date= self.stream_state['replication_key_value']
+
+            if start_date:
+                params["after"] = start_date
+                logging.info(f"Adding {start_date} replication key as start date")
+
+            # Add optional parameters if they exist, this is for testing purposes. using this will interepret the incremental load.
+            for param_name, config_key in [
+                ("before", "created_before"),
+                ("after", "created_after")
+            ]:
+                if value := self.config.get(config_key):
+                    params[param_name] = value
+                    logging.info(f"Adding {param_name} parameter: {value}")
+
+            # Override 'before' parameter if next_page_token exists
+            if next_page_token:
+                params["before"] = next_page_token
+
+            return params
+
         except Exception as e:
-            logging.exception("Error generating child context")
+            logging.exception("Error generating URL parameters")
             raise
-        
-
-class ProfileStream(TapChameleonStream):
-    """
-    Profile stream class, child of survey_responses.
-    
-    This stream handles profile data associated with survey responses,
-    including user identification and company information.
-    """
-    
-    # Stream configuration
-    name: str = "profiles"
-    path: str = "/v3/analyze/profiles/{id}"
-    primary_keys: List[str] = ["id"]
-    records_jsonpath: str = "$.profile[*]"
-    
-    # Parent stream settings
-    parent_stream_type = MicroSurveyResponses
-    ignore_parent_replication_keys: bool = True
-
-    replication_key = None 
-    
-    # Stream schema definition
-    schema: Dict[str, Any] = th.PropertiesList(
-        th.Property("id", th.StringType),  # Profile ID
-        th.Property("browser_l", th.StringType),  # Browser language
-        th.Property("created_at", th.StringType),  # Other details
-        th.Property("updated_at", th.StringType),  # Other details
-        # Company details
-        th.Property("company", th.ObjectType(
-            th.Property("uid", th.StringType)
-        )),
-    ).to_dict()
