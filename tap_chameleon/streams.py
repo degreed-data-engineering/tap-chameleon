@@ -126,9 +126,15 @@ class MicroSurveyResponses(TapChameleonStream):
         
         # Profile information
         th.Property("profile", th.ObjectType(
-            th.Property("id", th.StringType),
-        )),
-    ).to_dict()
+            th.Property("id", th.StringType),  # Profile ID
+            th.Property("browser_l", th.StringType),  # Browser language
+            th.Property("created_at", th.StringType),  # Other details
+            th.Property("updated_at", th.StringType),  # Other details
+            # Company details
+            th.Property("company", th.ObjectType(
+            th.Property("uid", th.StringType)
+        ))),
+    )).to_dict()
     
     def get_url_params(
         self,
@@ -150,7 +156,8 @@ class MicroSurveyResponses(TapChameleonStream):
         """
         try:
             params = {
-                "limit": self.config.get("limit", 50)
+                "limit": self.config.get("limit", 50),
+                "expand[profile]":"all"
             }
 
             survey_id = self.config.get("survey_id")
@@ -198,64 +205,3 @@ class MicroSurveyResponses(TapChameleonStream):
         except Exception as e:
             logging.exception("Error generating URL parameters")
             raise
-
-    def get_child_context(
-    self,
-    record: Dict[str, Any],
-    context: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """
-        Generate context for child streams from a parent record.
-
-        Args:
-            record: The parent stream record containing profile information
-            context: Optional parent stream context
-
-        Returns:
-            Dict containing profile ID and profile data for child streams
-
-        Raises:
-            KeyError: If required profile data is missing from the record
-        """
-        try:
-            if not (profile := record.get("profile")):
-                raise KeyError("Profile data missing from record")
-
-            return {
-                "id": profile["id"]
-            }
-        except Exception as e:
-            logging.exception("Error generating child context")
-            raise
-        
-
-class ProfileStream(TapChameleonStream):
-    """
-    Profile stream class, child of survey_responses.
-    
-    This stream handles profile data associated with survey responses,
-    including user identification and company information.
-    """
-    
-    # Stream configuration
-    name: str = "profiles"
-    path: str = "/v3/analyze/profiles/{id}"
-    primary_keys: List[str] = ["id"]
-    records_jsonpath: str = "$.profile[*]"
-    
-    # Parent stream settings
-    parent_stream_type = MicroSurveyResponses
-    ignore_parent_replication_keys: bool = True
-
-    
-    # Stream schema definition
-    schema: Dict[str, Any] = th.PropertiesList(
-        th.Property("id", th.StringType),  # Profile ID
-        th.Property("browser_l", th.StringType),  # Browser language
-        th.Property("created_at", th.StringType),  # Other details
-        th.Property("updated_at", th.StringType),  # Other details
-        # Company details
-        th.Property("company", th.ObjectType(
-            th.Property("uid", th.StringType)
-        )),
-    ).to_dict()
