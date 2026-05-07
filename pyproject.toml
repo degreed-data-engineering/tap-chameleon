@@ -7,8 +7,9 @@ license = "Apache v2"
 
 [tool.poetry.dependencies]
 python = ">=3.9.2,<3.11"
-requests = "^2.25.1"
-singer-sdk = "^0.45.4"
+requests = "^2.25.1"                                                                                                                                                                                                                              
+singer-sdk = "^0.46.0"
+rpds-py = ">=0.18.0,<0.22.0"                                                                                                                                                                                                                         
 cryptography = "^44.0.1"
 
 [tool.poetry.group.dev.dependencies]
