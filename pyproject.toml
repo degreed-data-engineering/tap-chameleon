@@ -1,12 +1,12 @@
 [tool.poetry]
 name = "tap-chameleon"
-version = "0.0.1"
+version = "0.0.4"
 description = "`tap-chameleon` is Singer-compliant chameleon tap built with Singer SDK."
 authors = ["Derek Visch <dvisch@autoidm.com>"]
 license = "Apache v2"
 
 [tool.poetry.dependencies]
-python = ">=3.9.2,<3.11"
+python = ">=3.9.2,<3.13"
 requests = "^2.25.1"                                                                                                                                                                                                                              
 singer-sdk = "^0.46.0"
 rpds-py = ">=0.18.0,<0.22.0"                                                                                                                                                                                                                         
