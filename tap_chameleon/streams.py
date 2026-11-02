@@ -122,8 +122,22 @@ class MicroSurveyResponses(TapChameleonStream):
         th.Property("survey_id", th.StringType),
         th.Property("profile_id", th.StringType),
         th.Property("button_text", th.StringType),
+        th.Property("button_order", th.IntegerType),  # numeric score position, independent of button_text label
+        th.Property("href", th.StringType),  # page URL where the survey was answered
         th.Property("input_text", th.StringType),
-        
+        th.Property("input_text2", th.StringType),
+
+        # Comment step free text (Q2 "primary reasons for the score" lands in
+        # comment_step_input_text; input_text is always null for NPS - PD-133752)
+        th.Property("comment_step_input_text", th.StringType),
+        th.Property("comment_step_input_text2", th.StringType),
+        th.Property("comment_step_input_text3", th.StringType),
+
+        # Follow-up question free text
+        th.Property("follow_up_question_text", th.StringType),
+        th.Property("follow_up_question_text2", th.StringType),
+        th.Property("follow_up_question_text3", th.StringType),
+
         # Profile information
         th.Property("profile", th.ObjectType(
             th.Property("id", th.StringType),  # Profile ID

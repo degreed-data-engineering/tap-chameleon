@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tap-chameleon"
-version = "0.0.4"
+version = "0.0.5"
 description = "`tap-chameleon` is Singer-compliant chameleon tap built with Singer SDK."
 authors = ["Derek Visch <dvisch@autoidm.com>"]
 license = "Apache v2"
