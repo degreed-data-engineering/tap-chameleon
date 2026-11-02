@@ -122,6 +122,8 @@ class MicroSurveyResponses(TapChameleonStream):
         th.Property("survey_id", th.StringType),
         th.Property("profile_id", th.StringType),
         th.Property("button_text", th.StringType),
+        th.Property("button_order", th.IntegerType),  # numeric score position, independent of button_text label
+        th.Property("href", th.StringType),  # page URL where the survey was answered
         th.Property("input_text", th.StringType),
         th.Property("input_text2", th.StringType),
 
